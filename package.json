@@ -1,16 +1,12 @@
 {
-	"name": "api",
-	"version": "0.0.1",
-	"devDependencies": {
-		"@cloudflare/workers-types": "^4.20230307.0",
-		"typescript": "^4.9.5",
-		"vitest": "^0.29.2",
-		"wrangler": "2.12.1"
-	},
-	"private": true,
+	"name": "elclark-apis",
+	"version": "1.0.0",
+	"description": "",
+	"main": "index.js",
 	"scripts": {
-		"start": "wrangler dev",
-		"deploy": "wrangler publish",
-		"test": "vitest"
-	}
+		"test": "echo \"Error: no test specified\" && exit 1"
+	},
+	"keywords": [],
+	"author": "",
+	"license": "GPL-3.0-or-later"
 }

@@ -11,7 +11,6 @@
   - [ ] API Caching
   - [ ] API Logging
   - [ ] API Testing
-  - [ ] API Documentation
 
 - [ ] Journal
 
@@ -19,7 +18,7 @@
   - [x] Journal List Request
   - [ ] validate POST & PUT Data
   - [ ] Tags
-  - [ ] tests
+  - [ ] Tests
 
 - [ ] Auth
 
@@ -32,13 +31,13 @@
   - [ ] User Profile Update
   - [ ] User Profile Delete
   - [ ] User Profile Picture
-  - [ ] tests
+  - [ ] Tests
 
 - [ ] Images
 
   - [ ] Image Upload
   - [ ] Image Delete
-  - [ ] tests
+  - [ ] Tests
 
 - [ ] Comments
 
