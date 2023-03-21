@@ -28,12 +28,13 @@ export interface SessionData {
 	useragent: string
 }
 
-export interface KVlist {
+export interface ListResult {
 	keys: [
 		{
 			name: string
 			metadata: {
 				title: string
+				author: string
 				visibility: string
 			}
 		}
@@ -75,7 +76,7 @@ export default {
 					const limit = Number(searchParams.get('limit')) || 10
 					const cursor = searchParams.get('cursor') || undefined
 
-					const list = (await BLOGS_KV.list({ limit, cursor })) as KVlist
+					const list = (await BLOGS_KV.list({ limit, cursor })) as ListResult
 					const posts = list.keys.filter(
 						({ metadata: { visibility } }) => visibility === 'public'
 					)
@@ -190,6 +191,7 @@ export default {
 						await BLOGS_KV.put(blogSlug, JSON.stringify(post), {
 							metadata: {
 								title,
+								author: post.author,
 								visibility,
 							},
 						})
@@ -231,6 +233,7 @@ export default {
 						await BLOGS_KV.put(blogSlug, JSON.stringify(post), {
 							metadata: {
 								title: post.title,
+								author: post.author,
 								visibility: post.visibility,
 							},
 						})
@@ -241,6 +244,58 @@ export default {
 			}
 
 			return new Response('Method Not Allowed', { status: 405 })
+		}
+
+		if (paths[1] === 'editor') {
+			if (method === 'GET') {
+				const session = await getCookies(headers, 'session')
+
+				if (!session) {
+					return new Response('Unauthorized', { status: 401 })
+				}
+
+				const sessionData = (await SESSIONS_KV.get(session, {
+					type: 'json',
+				})) as SessionData
+
+				if (!sessionData) {
+					return new Response('Unauthorized', { status: 401 })
+				}
+
+				if (
+					sessionData.user.role !== 'admin' &&
+					sessionData.user.role !== 'editor'
+				) {
+					return new Response('Unauthorized', { status: 401 })
+				}
+
+				// get list of blogs that the user has access to
+				const searchParams = new URLSearchParams(search)
+				const limit = Number(searchParams.get('limit')) || 10
+				const cursor = searchParams.get('cursor') || undefined
+
+				const list = (await BLOGS_KV.list({
+					limit,
+					cursor,
+				})) as ListResult
+
+				const posts = list.keys.filter(
+					({ metadata: { author } }) => author === sessionData.user.username
+				)
+
+				return new Response(
+					JSON.stringify({
+						posts,
+						list_complete: list.list_complete,
+						cursor: list.cursor,
+					}),
+					{
+						headers: {
+							'Content-Type': 'application/json',
+						},
+					}
+				)
+			}
 		}
 
 		return new Response('Not Found', { status: 404 })
