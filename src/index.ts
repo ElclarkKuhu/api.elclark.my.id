@@ -28,6 +28,12 @@ export interface SessionData {
 	useragent: string
 }
 
+const corsHeaders = {
+	'Access-Control-Allow-Origin': '*',
+	'Access-Control-Allow-Methods': 'GET,HEAD,POST,OPTIONS',
+	'Access-Control-Max-Age': '86400',
+}
+
 export interface ListResult {
 	keys: [
 		{
@@ -64,7 +70,7 @@ export default {
 		const paths = pathname.split('/').filter(Boolean)
 
 		if (paths[0] !== apiVersion) {
-			return new Response('Not Found', { status: 404 })
+			return new Response('Not Found', { status: 404, headers: corsHeaders })
 		}
 
 		if (paths[1] === 'blog') {
@@ -90,26 +96,36 @@ export default {
 						{
 							headers: {
 								'Content-Type': 'application/json',
+								...corsHeaders,
 							},
 						}
 					)
 				}
 
-				return new Response('Method Not Allowed', { status: 405 })
+				return new Response('Method Not Allowed', {
+					status: 405,
+					headers: corsHeaders,
+				})
 			}
 
 			if (method === 'GET') {
 				const post = (await BLOGS_KV.get(blogSlug, { type: 'json' })) as Post
 
 				if (!post) {
-					return new Response('Not Found', { status: 404 })
+					return new Response('Not Found', {
+						status: 404,
+						headers: corsHeaders,
+					})
 				}
 
 				if (post.visibility === 'private') {
 					const session = await getCookies(headers, 'session')
 
 					if (!session) {
-						return new Response('Unauthorized', { status: 401 })
+						return new Response('Unauthorized', {
+							status: 401,
+							headers: corsHeaders,
+						})
 					}
 
 					const sessionData = (await SESSIONS_KV.get(session, {
@@ -117,12 +133,18 @@ export default {
 					})) as SessionData
 
 					if (!sessionData) {
-						return new Response('Unauthorized', { status: 401 })
+						return new Response('Unauthorized', {
+							status: 401,
+							headers: corsHeaders,
+						})
 					}
 
 					if (sessionData.user.username !== post.author) {
 						if (sessionData.user.role !== 'admin') {
-							return new Response('Unauthorized', { status: 401 })
+							return new Response('Unauthorized', {
+								status: 401,
+								headers: corsHeaders,
+							})
 						}
 					}
 				}
@@ -130,6 +152,7 @@ export default {
 				return new Response(JSON.stringify(post), {
 					headers: {
 						'Content-Type': 'application/json',
+						...corsHeaders,
 					},
 				})
 			}
@@ -138,7 +161,10 @@ export default {
 				const session = await getCookies(headers, 'session')
 
 				if (!session) {
-					return new Response('Unauthorized', { status: 401 })
+					return new Response('Unauthorized', {
+						status: 401,
+						headers: corsHeaders,
+					})
 				}
 
 				const sessionData = (await SESSIONS_KV.get(session, {
@@ -146,38 +172,53 @@ export default {
 				})) as SessionData
 
 				if (!sessionData) {
-					return new Response('Unauthorized', { status: 401 })
+					return new Response('Unauthorized', {
+						status: 401,
+						headers: corsHeaders,
+					})
 				}
 
 				if (
 					sessionData.user.role !== 'admin' &&
 					sessionData.user.role !== 'editor'
 				) {
-					return new Response('Unauthorized', { status: 401 })
+					return new Response('Unauthorized', {
+						status: 401,
+						headers: corsHeaders,
+					})
 				}
 
 				if (sessionData.user.banned) {
-					return new Response('Unauthorized', { status: 401 })
+					return new Response('Unauthorized', {
+						status: 401,
+						headers: corsHeaders,
+					})
 				}
 
 				if (method === 'DELETE') {
 					await BLOGS_KV.delete(blogSlug)
 
-					return new Response('OK', { status: 200 })
+					return new Response('OK', { status: 200, headers: corsHeaders })
 				}
 
 				if (method === 'POST' || method === 'PUT') {
 					const body: PostPostBody = await request.json()
 
 					if (!body) {
-						return new Response('Bad Request', { status: 400 })
+						return new Response('Bad Request', {
+							status: 400,
+							headers: corsHeaders,
+						})
 					}
 
 					const { title, content, visibility } = body
 
 					if (method === 'POST') {
 						if (!title || !content || !visibility) {
-							return new Response('Bad Request', { status: 400 })
+							return new Response('Bad Request', {
+								status: 400,
+								headers: corsHeaders,
+							})
 						}
 
 						const post: Post = {
@@ -196,7 +237,10 @@ export default {
 							},
 						})
 
-						return new Response('Created', { status: 201 })
+						return new Response('Created', {
+							status: 201,
+							headers: corsHeaders,
+						})
 					}
 
 					if (method === 'PUT') {
@@ -205,13 +249,17 @@ export default {
 						})) as Post
 
 						if (!post) {
-							return new Response('Not Found', { status: 404 })
+							return new Response('Not Found', {
+								status: 404,
+								headers: corsHeaders,
+							})
 						}
 
 						if (sessionData.user.username !== post.author) {
 							if (sessionData.user.role !== 'admin') {
 								return new Response('Unauthorized', {
 									status: 401,
+									headers: corsHeaders,
 								})
 							}
 						}
@@ -238,12 +286,15 @@ export default {
 							},
 						})
 
-						return new Response('OK', { status: 200 })
+						return new Response('OK', { status: 200, headers: corsHeaders })
 					}
 				}
 			}
 
-			return new Response('Method Not Allowed', { status: 405 })
+			return new Response('Method Not Allowed', {
+				status: 405,
+				headers: corsHeaders,
+			})
 		}
 
 		if (paths[1] === 'editor') {
@@ -251,7 +302,10 @@ export default {
 				const session = await getCookies(headers, 'session')
 
 				if (!session) {
-					return new Response('Unauthorized', { status: 401 })
+					return new Response('Unauthorized', {
+						status: 401,
+						headers: corsHeaders,
+					})
 				}
 
 				const sessionData = (await SESSIONS_KV.get(session, {
@@ -259,14 +313,20 @@ export default {
 				})) as SessionData
 
 				if (!sessionData) {
-					return new Response('Unauthorized', { status: 401 })
+					return new Response('Unauthorized', {
+						status: 401,
+						headers: corsHeaders,
+					})
 				}
 
 				if (
 					sessionData.user.role !== 'admin' &&
 					sessionData.user.role !== 'editor'
 				) {
-					return new Response('Unauthorized', { status: 401 })
+					return new Response('Unauthorized', {
+						status: 401,
+						headers: corsHeaders,
+					})
 				}
 
 				// get list of blogs that the user has access to
@@ -292,13 +352,14 @@ export default {
 					{
 						headers: {
 							'Content-Type': 'application/json',
+							...corsHeaders,
 						},
 					}
 				)
 			}
 		}
 
-		return new Response('Not Found', { status: 404 })
+		return new Response('Not Found', { status: 404, headers: corsHeaders })
 	},
 }
 
