@@ -1,0 +1,13 @@
+name = "api"
+main = "src/index.ts"
+compatibility_date = "2023-03-20"
+
+[[kv_namespaces]]
+binding = "BLOGS_KV"
+id = "<your kv namespace id>"
+preview_id = "<your kv namespace id>"
+
+[[kv_namespaces]]
+binding = "SESSIONS_KV"
+id = "<your kv namespace id>"
+preview_id = "<your kv namespace id>"
