@@ -393,6 +393,7 @@ async function corsHeaders(request: Request) {
 	const other = {
 		'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE',
 		'Access-Control-Allow-Headers': 'Content-Type, Authorization, Cookie',
+		'Access-Control-Allow-Credentials': 'true',
 	}
 
 	const origin = request.headers.get('Origin')
