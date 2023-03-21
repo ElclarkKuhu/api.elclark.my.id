@@ -412,14 +412,6 @@ async function corsHeaders(request: Request) {
 		}
 	}
 
-	// allow localhost
-	if (origin.endsWith('localhost:5173')) {
-		return {
-			'Access-Control-Allow-Origin': origin,
-			...other,
-		}
-	}
-
 	return {
 		'Access-Control-Allow-Origin': '*',
 		...other,
