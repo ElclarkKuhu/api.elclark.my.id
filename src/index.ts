@@ -28,6 +28,20 @@ export interface SessionData {
 	useragent: string
 }
 
+export interface KVlist {
+	keys: [
+		{
+			name: string
+			metadata: {
+				title: string
+				visibility: string
+			}
+		}
+	]
+	list_complete: boolean
+	cursor: string
+}
+
 export interface PostPostBody {
 	title: string
 	content: string
@@ -44,7 +58,7 @@ export default {
 
 		const { BLOGS_KV, SESSIONS_KV } = env
 		const { method, headers } = request
-		const { pathname } = new URL(request.url)
+		const { pathname, search } = new URL(request.url)
 
 		const paths = pathname.split('/').filter(Boolean)
 
@@ -56,7 +70,31 @@ export default {
 			const blogSlug = paths[2]
 
 			if (!blogSlug) {
-				return new Response('Not Found', { status: 404 })
+				if (method === 'GET') {
+					const searchParams = new URLSearchParams(search)
+					const limit = Number(searchParams.get('limit')) || 10
+					const cursor = searchParams.get('cursor') || undefined
+
+					const list = (await BLOGS_KV.list({ limit, cursor })) as KVlist
+					const posts = list.keys.filter(
+						({ metadata: { visibility } }) => visibility === 'public'
+					)
+
+					return new Response(
+						JSON.stringify({
+							posts,
+							list_complete: list.list_complete,
+							cursor: list.cursor,
+						}),
+						{
+							headers: {
+								'Content-Type': 'application/json',
+							},
+						}
+					)
+				}
+
+				return new Response('Method Not Allowed', { status: 405 })
 			}
 
 			if (method === 'GET') {
