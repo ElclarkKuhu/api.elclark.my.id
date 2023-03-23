@@ -121,7 +121,7 @@ export default {
 				}
 
 				if (post.visibility === 'private') {
-					const session = await getCookies(headers, 'session')
+					const session = await getSessionId(headers)
 
 					if (!session) {
 						return new Response('Unauthorized', {
@@ -160,7 +160,7 @@ export default {
 			}
 
 			if (method === 'POST' || method === 'PUT' || method === 'DELETE') {
-				const session = await getCookies(headers, 'session')
+				const session = await getSessionId(headers)
 
 				if (!session) {
 					return new Response('Unauthorized', {
@@ -301,7 +301,7 @@ export default {
 
 		if (paths[1] === 'editor') {
 			if (method === 'GET') {
-				const session = await getCookies(headers, 'session')
+				const session = await getSessionId(headers)
 
 				if (!session) {
 					return new Response('Unauthorized', {
@@ -365,22 +365,22 @@ export default {
 	},
 }
 
-async function getCookies(headers: Headers, key: string) {
-	const cookie = headers.get('Cookie')
+async function getSessionId(headers: Headers) {
+	const auth = headers.get('Authorization')
 
-	if (!cookie) {
+	if (!auth) {
 		return null
 	}
 
-	const cookies = cookie.split(';')
+	const [type, token] = auth.split(' ')
 
-	for (const cookie of cookies) {
-		const [cookieKey, cookieValue] = cookie.split('=')
-
-		if (cookieKey.trim() === key) {
-			return cookieValue
-		}
+	if (type !== 'Bearer') {
+		return null
 	}
 
-	return null
+	if (!token) {
+		return null
+	}
+
+	return token
 }
