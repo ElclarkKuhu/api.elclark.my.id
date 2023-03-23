@@ -7,8 +7,9 @@ export interface Post {
 	title: string
 	author: string
 	date: string
+	slug: string
 	updated?: string
-	content: string
+	content?: string
 	visibility: string
 }
 
@@ -28,33 +29,18 @@ export interface SessionData {
 	useragent: string
 }
 
+export interface PostPostBody {
+	title: string
+	content: string
+	visibility: string
+}
+
 const corsHeaders = {
 	'Access-Control-Allow-Origin': '*',
 	'Access-Control-Allow-Methods': 'GET,HEAD,POST,OPTIONS',
 	'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 	'Access-Control-Allow-Credentials': 'true',
 	'Access-Control-Max-Age': '86400',
-}
-
-export interface ListResult {
-	keys: [
-		{
-			name: string
-			metadata: {
-				title: string
-				author: string
-				visibility: string
-			}
-		}
-	]
-	list_complete: boolean
-	cursor: string
-}
-
-export interface PostPostBody {
-	title: string
-	content: string
-	visibility: string
 }
 
 export default {
@@ -84,10 +70,28 @@ export default {
 					const limit = Number(searchParams.get('limit')) || 10
 					const cursor = searchParams.get('cursor') || undefined
 
-					const list = (await BLOGS_KV.list({ limit, cursor })) as ListResult
-					const posts = list.keys.filter(
-						({ metadata: { visibility } }) => visibility === 'public'
-					)
+					const list: any = await BLOGS_KV.list({ limit, cursor })
+
+					if (!list) {
+						return new Response('Not Found', {
+							status: 404,
+							headers: corsHeaders,
+						})
+					}
+
+					let posts: Post[] = []
+
+					for (const { name, metadata } of list.keys) {
+						posts.push({
+							title: metadata.title,
+							slug: name,
+							date: metadata.date,
+							author: metadata.author,
+							visibility: metadata.visibility,
+						})
+					}
+
+					posts = posts.filter((post) => post.visibility !== 'private')
 
 					return new Response(
 						JSON.stringify({
@@ -225,6 +229,7 @@ export default {
 
 						const post: Post = {
 							title,
+							slug: blogSlug,
 							author: sessionData.user.username,
 							date: new Date().toISOString(),
 							content,
@@ -234,6 +239,7 @@ export default {
 						await BLOGS_KV.put(blogSlug, JSON.stringify(post), {
 							metadata: {
 								title,
+								date: post.date,
 								author: post.author,
 								visibility,
 							},
@@ -336,14 +342,46 @@ export default {
 				const limit = Number(searchParams.get('limit')) || 10
 				const cursor = searchParams.get('cursor') || undefined
 
-				const list = (await BLOGS_KV.list({
-					limit,
-					cursor,
-				})) as ListResult
+				const list: any = await BLOGS_KV.list({ limit, cursor })
 
-				const posts = list.keys.filter(
-					({ metadata: { author } }) => author === sessionData.user.username
-				)
+				if (!list) {
+					return new Response('Not Found', {
+						status: 404,
+						headers: corsHeaders,
+					})
+				}
+
+				let posts: Post[] = []
+
+				for (const { name, metadata } of list.keys) {
+					posts.push({
+						title: metadata.title,
+						slug: name,
+						date: metadata.date,
+						author: metadata.author,
+						visibility: metadata.visibility,
+					})
+				}
+
+				posts = posts.filter((post) => {
+					if (sessionData.user.role === 'admin') {
+						return true
+					}
+
+					if (sessionData.user.role === 'editor') {
+						if (post.visibility === 'public') {
+							return true
+						}
+
+						if (post.visibility === 'private') {
+							if (post.author === sessionData.user.username) {
+								return true
+							}
+						}
+					}
+
+					return false
+				})
 
 				return new Response(
 					JSON.stringify({
