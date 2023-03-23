@@ -28,6 +28,14 @@ export interface SessionData {
 	useragent: string
 }
 
+const corsHeaders = {
+	'Access-Control-Allow-Origin': '*',
+	'Access-Control-Allow-Methods': 'GET,HEAD,POST,OPTIONS',
+	'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+	'Access-Control-Allow-Credentials': 'true',
+	'Access-Control-Max-Age': '86400',
+}
+
 export interface ListResult {
 	keys: [
 		{
@@ -64,10 +72,7 @@ export default {
 		const paths = pathname.split('/').filter(Boolean)
 
 		if (paths[0] !== apiVersion) {
-			return new Response('Not Found', {
-				status: 404,
-				headers: await corsHeaders(headers),
-			})
+			return new Response('Not Found', { status: 404, headers: corsHeaders })
 		}
 
 		if (paths[1] === 'blog') {
@@ -93,7 +98,7 @@ export default {
 						{
 							headers: {
 								'Content-Type': 'application/json',
-								...(await corsHeaders(headers)),
+								...corsHeaders,
 							},
 						}
 					)
@@ -101,7 +106,7 @@ export default {
 
 				return new Response('Method Not Allowed', {
 					status: 405,
-					headers: await corsHeaders(headers),
+					headers: corsHeaders,
 				})
 			}
 
@@ -111,7 +116,7 @@ export default {
 				if (!post) {
 					return new Response('Not Found', {
 						status: 404,
-						headers: await corsHeaders(headers),
+						headers: corsHeaders,
 					})
 				}
 
@@ -121,7 +126,7 @@ export default {
 					if (!session) {
 						return new Response('Unauthorized', {
 							status: 401,
-							headers: await corsHeaders(headers),
+							headers: corsHeaders,
 						})
 					}
 
@@ -132,7 +137,7 @@ export default {
 					if (!sessionData) {
 						return new Response('Unauthorized', {
 							status: 401,
-							headers: await corsHeaders(headers),
+							headers: corsHeaders,
 						})
 					}
 
@@ -140,7 +145,7 @@ export default {
 						if (sessionData.user.role !== 'admin') {
 							return new Response('Unauthorized', {
 								status: 401,
-								headers: await corsHeaders(headers),
+								headers: corsHeaders,
 							})
 						}
 					}
@@ -149,7 +154,7 @@ export default {
 				return new Response(JSON.stringify(post), {
 					headers: {
 						'Content-Type': 'application/json',
-						...(await corsHeaders(headers)),
+						...corsHeaders,
 					},
 				})
 			}
@@ -160,7 +165,7 @@ export default {
 				if (!session) {
 					return new Response('Unauthorized', {
 						status: 401,
-						headers: await corsHeaders(headers),
+						headers: corsHeaders,
 					})
 				}
 
@@ -171,7 +176,7 @@ export default {
 				if (!sessionData) {
 					return new Response('Unauthorized', {
 						status: 401,
-						headers: await corsHeaders(headers),
+						headers: corsHeaders,
 					})
 				}
 
@@ -181,24 +186,21 @@ export default {
 				) {
 					return new Response('Unauthorized', {
 						status: 401,
-						headers: await corsHeaders(headers),
+						headers: corsHeaders,
 					})
 				}
 
 				if (sessionData.user.banned) {
 					return new Response('Unauthorized', {
 						status: 401,
-						headers: await corsHeaders(headers),
+						headers: corsHeaders,
 					})
 				}
 
 				if (method === 'DELETE') {
 					await BLOGS_KV.delete(blogSlug)
 
-					return new Response('OK', {
-						status: 200,
-						headers: await corsHeaders(headers),
-					})
+					return new Response('OK', { status: 200, headers: corsHeaders })
 				}
 
 				if (method === 'POST' || method === 'PUT') {
@@ -207,7 +209,7 @@ export default {
 					if (!body) {
 						return new Response('Bad Request', {
 							status: 400,
-							headers: await corsHeaders(headers),
+							headers: corsHeaders,
 						})
 					}
 
@@ -217,7 +219,7 @@ export default {
 						if (!title || !content || !visibility) {
 							return new Response('Bad Request', {
 								status: 400,
-								headers: await corsHeaders(headers),
+								headers: corsHeaders,
 							})
 						}
 
@@ -239,7 +241,7 @@ export default {
 
 						return new Response('Created', {
 							status: 201,
-							headers: await corsHeaders(headers),
+							headers: corsHeaders,
 						})
 					}
 
@@ -251,7 +253,7 @@ export default {
 						if (!post) {
 							return new Response('Not Found', {
 								status: 404,
-								headers: await corsHeaders(headers),
+								headers: corsHeaders,
 							})
 						}
 
@@ -259,7 +261,7 @@ export default {
 							if (sessionData.user.role !== 'admin') {
 								return new Response('Unauthorized', {
 									status: 401,
-									headers: await corsHeaders(headers),
+									headers: corsHeaders,
 								})
 							}
 						}
@@ -286,17 +288,14 @@ export default {
 							},
 						})
 
-						return new Response('OK', {
-							status: 200,
-							headers: await corsHeaders(headers),
-						})
+						return new Response('OK', { status: 200, headers: corsHeaders })
 					}
 				}
 			}
 
 			return new Response('Method Not Allowed', {
 				status: 405,
-				headers: await corsHeaders(headers),
+				headers: corsHeaders,
 			})
 		}
 
@@ -307,7 +306,7 @@ export default {
 				if (!session) {
 					return new Response('Unauthorized', {
 						status: 401,
-						headers: await corsHeaders(headers),
+						headers: corsHeaders,
 					})
 				}
 
@@ -318,7 +317,7 @@ export default {
 				if (!sessionData) {
 					return new Response('Unauthorized', {
 						status: 401,
-						headers: await corsHeaders(headers),
+						headers: corsHeaders,
 					})
 				}
 
@@ -328,7 +327,7 @@ export default {
 				) {
 					return new Response('Unauthorized', {
 						status: 401,
-						headers: await corsHeaders(headers),
+						headers: corsHeaders,
 					})
 				}
 
@@ -355,17 +354,14 @@ export default {
 					{
 						headers: {
 							'Content-Type': 'application/json',
-							...(await corsHeaders(headers)),
+							...corsHeaders,
 						},
 					}
 				)
 			}
 		}
 
-		return new Response('Not Found', {
-			status: 404,
-			headers: await corsHeaders(headers),
-		})
+		return new Response('Not Found', { status: 404, headers: corsHeaders })
 	},
 }
 
@@ -387,33 +383,4 @@ async function getCookies(headers: Headers, key: string) {
 	}
 
 	return null
-}
-
-async function corsHeaders(headers: Headers) {
-	const other = {
-		'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE',
-		'Access-Control-Allow-Headers': 'Content-Type, Authorization, Cookie',
-		'Access-Control-Allow-Credentials': 'true',
-	}
-
-	const origin = headers.get('Origin')
-
-	if (!origin) {
-		return {
-			'Access-Control-Allow-Origin': '*',
-			...other,
-		}
-	}
-
-	if (origin.endsWith('elclark.my.id')) {
-		return {
-			'Access-Control-Allow-Origin': origin,
-			...other,
-		}
-	}
-
-	return {
-		'Access-Control-Allow-Origin': '*',
-		...other,
-	}
 }
