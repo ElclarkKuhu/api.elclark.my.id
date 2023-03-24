@@ -299,6 +299,7 @@ export default {
 							metadata: {
 								title: post.title,
 								featuredImage,
+								date: post.date,
 								author: post.author,
 								visibility: post.visibility,
 							},
