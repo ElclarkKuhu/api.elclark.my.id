@@ -356,21 +356,7 @@ export default {
 async function getSessionId(headers: Headers) {
 	const auth = headers.get('Authorization')
 
-	if (!auth) {
-		return null
-	}
-
-	const [type, token] = auth.split(' ')
-
-	if (type !== 'Bearer') {
-		return null
-	}
-
-	if (!token) {
-		return null
-	}
-
-	return token
+	return auth?.startsWith('Bearer ') ? auth.slice(7) : null
 }
 
 async function getPosts(
