@@ -5,6 +5,7 @@ export interface Env {
 
 export interface Post {
 	title: string
+	featuredImage?: string
 	author: string
 	date: string
 	slug: string
@@ -31,6 +32,7 @@ export interface SessionData {
 
 export interface PostPostBody {
 	title: string
+	featuredImage?: string
 	content: string
 	visibility: string
 }
@@ -84,6 +86,7 @@ export default {
 					for (const { name, metadata } of list.keys) {
 						posts.push({
 							title: metadata.title,
+							featuredImage: metadata.featuredImage,
 							slug: name,
 							date: metadata.date,
 							author: metadata.author,
@@ -217,7 +220,7 @@ export default {
 						})
 					}
 
-					const { title, content, visibility } = body
+					const { title, content, visibility, featuredImage } = body
 
 					if (method === 'POST') {
 						if (!title || !content || !visibility) {
@@ -229,6 +232,7 @@ export default {
 
 						const post: Post = {
 							title,
+							featuredImage: '',
 							slug: blogSlug,
 							author: sessionData.user.username,
 							date: new Date().toISOString(),
@@ -239,6 +243,7 @@ export default {
 						await BLOGS_KV.put(blogSlug, JSON.stringify(post), {
 							metadata: {
 								title,
+								featuredImage: '',
 								date: post.date,
 								author: post.author,
 								visibility,
@@ -284,11 +289,16 @@ export default {
 							post.visibility = visibility
 						}
 
+						if (featuredImage) {
+							post.featuredImage = featuredImage
+						}
+
 						post.updated = new Date().toISOString()
 
 						await BLOGS_KV.put(blogSlug, JSON.stringify(post), {
 							metadata: {
 								title: post.title,
+								featuredImage,
 								author: post.author,
 								visibility: post.visibility,
 							},
