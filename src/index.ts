@@ -5,7 +5,10 @@ export interface Env {
 
 export interface Post {
 	title: string
-	author: string
+	author: {
+		username: string
+		displayName: string
+	}
 	date: string
 	slug: string
 	updated?: string
@@ -145,7 +148,7 @@ export default {
 						})
 					}
 
-					if (sessionData.user.username !== post.author) {
+					if (sessionData.user.username !== post.author.username) {
 						if (sessionData.user.role !== 'admin') {
 							return new Response('Unauthorized', {
 								status: 401,
@@ -230,7 +233,10 @@ export default {
 						const post: Post = {
 							title,
 							slug: blogSlug,
-							author: sessionData.user.username,
+							author: {
+								username: sessionData.user.username,
+								displayName: sessionData.user.displayName,
+							},
 							date: new Date().toISOString(),
 							content,
 							visibility,
@@ -263,7 +269,7 @@ export default {
 							})
 						}
 
-						if (sessionData.user.username !== post.author) {
+						if (sessionData.user.username !== post.author.username) {
 							if (sessionData.user.role !== 'admin') {
 								return new Response('Unauthorized', {
 									status: 401,
@@ -374,7 +380,7 @@ export default {
 						}
 
 						if (post.visibility === 'private') {
-							if (post.author === sessionData.user.username) {
+							if (post.author.username === sessionData.user.username) {
 								return true
 							}
 						}
