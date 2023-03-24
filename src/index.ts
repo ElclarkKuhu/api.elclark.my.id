@@ -1,12 +1,13 @@
 export interface Env {
 	BLOGS_KV: KVNamespace
 	SESSIONS_KV: KVNamespace
+	USERS_KV: KVNamespace
 }
 
 export interface Post {
 	title: string
 	featuredImage?: string
-	author: string
+	author: string | Object
 	date: string
 	slug: string
 	updated?: string
@@ -30,7 +31,7 @@ export interface SessionData {
 	useragent: string
 }
 
-export interface PostPostBody {
+export interface PostBody {
 	title: string
 	featuredImage?: string
 	content: string
@@ -53,7 +54,7 @@ export default {
 	): Promise<Response> {
 		const apiVersion = 'v1'
 
-		const { BLOGS_KV, SESSIONS_KV } = env
+		const { BLOGS_KV, SESSIONS_KV, USERS_KV } = env
 		const { method, headers } = request
 		const { pathname, search } = new URL(request.url)
 
@@ -72,36 +73,10 @@ export default {
 					const limit = Number(searchParams.get('limit')) || 10
 					const cursor = searchParams.get('cursor') || undefined
 
-					const list: any = await BLOGS_KV.list({ limit, cursor })
-
-					if (!list) {
-						return new Response('Not Found', {
-							status: 404,
-							headers: corsHeaders,
-						})
-					}
-
-					let posts: Post[] = []
-
-					for (const { name, metadata } of list.keys) {
-						posts.push({
-							title: metadata.title,
-							featuredImage: metadata.featuredImage,
-							slug: name,
-							date: metadata.date,
-							author: metadata.author,
-							visibility: metadata.visibility,
-						})
-					}
-
-					posts = posts.filter((post) => post.visibility !== 'private')
-
 					return new Response(
-						JSON.stringify({
-							posts,
-							list_complete: list.list_complete,
-							cursor: list.cursor,
-						}),
+						JSON.stringify(
+							await getPosts(BLOGS_KV, USERS_KV, limit, cursor, 'public')
+						),
 						{
 							headers: {
 								'Content-Type': 'application/json',
@@ -211,7 +186,7 @@ export default {
 				}
 
 				if (method === 'POST' || method === 'PUT') {
-					const body: PostPostBody = await request.json()
+					const body: PostBody = await request.json()
 
 					if (!body) {
 						return new Response('Bad Request', {
@@ -353,53 +328,18 @@ export default {
 				const limit = Number(searchParams.get('limit')) || 10
 				const cursor = searchParams.get('cursor') || undefined
 
-				const list: any = await BLOGS_KV.list({ limit, cursor })
-
-				if (!list) {
-					return new Response('Not Found', {
-						status: 404,
-						headers: corsHeaders,
-					})
-				}
-
-				let posts: Post[] = []
-
-				for (const { name, metadata } of list.keys) {
-					posts.push({
-						title: metadata.title,
-						slug: name,
-						date: metadata.date,
-						author: metadata.author,
-						visibility: metadata.visibility,
-					})
-				}
-
-				posts = posts.filter((post) => {
-					if (sessionData.user.role === 'admin') {
-						return true
-					}
-
-					if (sessionData.user.role === 'editor') {
-						if (post.visibility === 'public') {
-							return true
-						}
-
-						if (post.visibility === 'private') {
-							if (post.author === sessionData.user.username) {
-								return true
-							}
-						}
-					}
-
-					return false
-				})
-
 				return new Response(
-					JSON.stringify({
-						posts,
-						list_complete: list.list_complete,
-						cursor: list.cursor,
-					}),
+					JSON.stringify(
+						await getPosts(
+							BLOGS_KV,
+							USERS_KV,
+							limit,
+							cursor,
+							'all',
+							sessionData.user.username,
+							sessionData.user.role
+						)
+					),
 					{
 						headers: {
 							'Content-Type': 'application/json',
@@ -432,4 +372,88 @@ async function getSessionId(headers: Headers) {
 	}
 
 	return token
+}
+
+async function getPosts(
+	BLOGS_KV: KVNamespace,
+	USERS_KV: KVNamespace,
+	limit: number,
+	cursor: string | undefined,
+	visibility: 'public' | 'private' | 'all',
+	author?: string | undefined,
+	role?: string | undefined
+) {
+	limit = Math.min(limit, 100)
+
+	const list: any = await BLOGS_KV.list({ limit, cursor })
+	if (!list || !list.keys || list.keys.length === 0)
+		return {
+			posts: [],
+			list_complete: true,
+			cursor: undefined,
+		}
+
+	let posts: Post[] = []
+	let users = new Map()
+
+	for (const { name, metadata } of list.keys) {
+		if (visibility !== 'all') {
+			if (metadata.visibility !== visibility) {
+				continue
+			}
+		}
+
+		if (author && metadata.author !== author) {
+			if (role !== 'admin') {
+				continue
+			}
+		}
+
+		let user = users.get(metadata.author)
+
+		if (!user) {
+			user = await USERS_KV.get(metadata.author, {
+				type: 'json',
+			})
+
+			delete user.password
+			users.set(metadata.author, user)
+		}
+
+		posts.push({
+			title: metadata.title,
+			featuredImage: metadata.featuredImage,
+			slug: name,
+			date: metadata.date,
+			author: user,
+			visibility: metadata.visibility,
+		})
+	}
+
+	// if post length is less than limit, we pull more posts
+	if (posts.length !== limit && !list.list_complete) {
+		if (list.cursor) {
+			const nextPosts = await getPosts(
+				BLOGS_KV,
+				USERS_KV,
+				limit - posts.length,
+				list.cursor,
+				visibility,
+				author,
+				role
+			)
+
+			posts = posts.concat(nextPosts.posts)
+		}
+	}
+
+	return {
+		posts,
+		list_complete: list.list_complete,
+		cursor: list.cursor,
+	} as {
+		posts: Post[]
+		list_complete: boolean
+		cursor: string | undefined
+	}
 }

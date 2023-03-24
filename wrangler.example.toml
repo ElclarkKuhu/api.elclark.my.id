@@ -11,3 +11,8 @@ preview_id = "<your kv namespace id>"
 binding = "SESSIONS_KV"
 id = "<your kv namespace id>"
 preview_id = "<your kv namespace id>"
+
+[[kv_namespaces]]
+binding = "USERS_KV"
+id = "<your kv namespace id>"
+preview_id = "<your kv namespace id>"
