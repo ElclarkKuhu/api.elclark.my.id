@@ -323,7 +323,6 @@ export default {
 					})
 				}
 
-				// get list of blogs that the user has access to
 				const searchParams = new URLSearchParams(search)
 				const limit = Number(searchParams.get('limit')) || 10
 				const cursor = searchParams.get('cursor') || undefined
@@ -430,7 +429,6 @@ async function getPosts(
 		})
 	}
 
-	// if post length is less than limit, we pull more posts
 	if (posts.length !== limit && !list.list_complete) {
 		if (list.cursor) {
 			const nextPosts = await getPosts(
