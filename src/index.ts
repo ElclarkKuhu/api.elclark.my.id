@@ -232,7 +232,7 @@ export default {
 
 						const post: Post = {
 							title,
-							featuredImage: '',
+							featuredImage,
 							slug: blogSlug,
 							author: sessionData.user.username,
 							date: new Date().toISOString(),
@@ -243,7 +243,7 @@ export default {
 						await BLOGS_KV.put(blogSlug, JSON.stringify(post), {
 							metadata: {
 								title,
-								featuredImage: '',
+								featuredImage,
 								date: post.date,
 								author: post.author,
 								visibility,
