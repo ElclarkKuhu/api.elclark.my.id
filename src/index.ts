@@ -320,16 +320,7 @@ export default {
 
 						postGet.updated = new Date().toISOString()
 
-						await BLOGS_KV.put(postSlug, JSON.stringify(postGet), {
-							metadata: {
-								title: postGet.title,
-								featuredImage: postGet.featuredImage,
-								date: postGet.date,
-								author: postGet.author,
-								visibility: postGet.visibility,
-							},
-						})
-
+						await BLOGS_KV.put(postSlug, JSON.stringify(postGet))
 						await updateIndex(INDEXES_KV, 'set', 'blogs', postSlug, postGet)
 
 						return new Response('OK', { status: 200, headers: corsHeaders })
