@@ -230,7 +230,7 @@ export default {
 
 				if (method === 'DELETE') {
 					await BLOGS_KV.delete(postSlug)
-
+					await updateIndex(INDEXES_KV, 'remove', 'blogs', postSlug)
 					return new Response('OK', { status: 200, headers: corsHeaders })
 				}
 
@@ -246,10 +246,21 @@ export default {
 
 					const { title, content, visibility, featuredImage } = body
 
+					let postGet = (await BLOGS_KV.get(postSlug, {
+						type: 'json',
+					})) as Post
+
 					if (method === 'POST') {
 						if (!title || !content || !visibility) {
 							return new Response('Bad Request', {
 								status: 400,
+								headers: corsHeaders,
+							})
+						}
+
+						if (postGet) {
+							return new Response('Conflict', {
+								status: 409,
 								headers: corsHeaders,
 							})
 						}
@@ -275,18 +286,14 @@ export default {
 					}
 
 					if (method === 'PUT') {
-						let post = (await BLOGS_KV.get(postSlug, {
-							type: 'json',
-						})) as Post
-
-						if (!post) {
+						if (!postGet) {
 							return new Response('Not Found', {
 								status: 404,
 								headers: corsHeaders,
 							})
 						}
 
-						if (sessionData.user.username !== post.author) {
+						if (sessionData.user.username !== postGet.author) {
 							if (sessionData.user.role !== 'admin') {
 								return new Response('Unauthorized', {
 									status: 401,
@@ -296,34 +303,34 @@ export default {
 						}
 
 						if (title) {
-							post.title = title
+							postGet.title = title
 						}
 
 						if (content) {
-							post.content = content
+							postGet.content = content
 						}
 
 						if (visibility) {
-							post.visibility = visibility
+							postGet.visibility = visibility
 						}
 
 						if (featuredImage) {
-							post.featuredImage = featuredImage
+							postGet.featuredImage = featuredImage
 						}
 
-						post.updated = new Date().toISOString()
+						postGet.updated = new Date().toISOString()
 
-						await BLOGS_KV.put(postSlug, JSON.stringify(post), {
+						await BLOGS_KV.put(postSlug, JSON.stringify(postGet), {
 							metadata: {
-								title: post.title,
-								featuredImage,
-								date: post.date,
-								author: post.author,
-								visibility: post.visibility,
+								title: postGet.title,
+								featuredImage: postGet.featuredImage,
+								date: postGet.date,
+								author: postGet.author,
+								visibility: postGet.visibility,
 							},
 						})
 
-						await updateIndex(INDEXES_KV, 'set', 'blogs', postSlug, post)
+						await updateIndex(INDEXES_KV, 'set', 'blogs', postSlug, postGet)
 
 						return new Response('OK', { status: 200, headers: corsHeaders })
 					}
@@ -394,21 +401,21 @@ export default {
 			}
 		}
 
-		if (paths[1] === 'init') {
-			if (paths[2]) {
-				if (method === 'GET') {
-					await INDEXES_KV.put(
-						paths[2],
-						JSON.stringify({
-							meta: [],
-							updated: new Date().toISOString(),
-						} as Index)
-					)
+		// if (paths[1] === 'init') {
+		// 	if (paths[2]) {
+		// 		if (method === 'GET') {
+		// 			await INDEXES_KV.put(
+		// 				paths[2],
+		// 				JSON.stringify({
+		// 					meta: [],
+		// 					updated: new Date().toISOString(),
+		// 				} as Index)
+		// 			)
 
-					return new Response('paths[2]', { status: 200, headers: corsHeaders })
-				}
-			}
-		}
+		// 			return new Response('paths[2]', { status: 200, headers: corsHeaders })
+		// 		}
+		// 	}
+		// }
 
 		return new Response('Not Found', { status: 404, headers: corsHeaders })
 	},
@@ -523,15 +530,13 @@ async function updateIndex(
 				throw new Error('Metadata is required')
 			}
 
-			index.meta.push({
-				title: metadata.title,
-				featuredImage: metadata.featuredImage,
-				author: metadata.author,
-				slug: metadata.slug,
-				date: metadata.date,
-				updated: metadata.updated,
-				visibility: metadata.visibility,
-			})
+			const existing = index.meta.find((post) => post.slug === slug)
+
+			if (existing) {
+				index.meta = index.meta.filter((post) => post.slug !== slug)
+			}
+
+			index.meta.push({ ...metadata, slug })
 			break
 		case 'remove':
 			index.meta = index.meta.filter((post) => post.slug !== slug)
