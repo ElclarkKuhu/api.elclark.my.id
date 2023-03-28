@@ -1,3 +1,5 @@
+import index from './indexes'
+
 export interface Env {
 	BLOGS_KV: KVNamespace
 	SESSIONS_KV: KVNamespace
@@ -24,7 +26,7 @@ export interface SessionData {
 		email: string
 		emailVerified: boolean
 		username: string
-		displayName: string
+		name: string
 		banned: boolean
 		role: string
 	}
@@ -37,11 +39,6 @@ export interface PostBody {
 	featuredImage?: string
 	content: string
 	visibility: string
-}
-
-export interface Index {
-	meta: Post[]
-	updated: string
 }
 
 const corsHeaders = {
@@ -76,35 +73,21 @@ export default {
 
 			if (!postSlug) {
 				if (method === 'GET') {
-					const cacheKey = new Request(url.toString(), request)
-					const cache = caches.default
+					const searchParams = new URLSearchParams(search)
+					const limit = Number(searchParams.get('limit')) || 10
+					const offset = Number(searchParams.get('offset')) || undefined
 
-					let response = await cache.match(cacheKey)
-
-					if (!response) {
-						const searchParams = new URLSearchParams(search)
-						const limit = Number(searchParams.get('limit')) || 10
-						const offset = Number(searchParams.get('offset')) || undefined
-
-						response = new Response(
-							JSON.stringify(
-								await getPosts(USERS_KV, INDEXES_KV, limit, offset, 'public')
-							),
-							{
-								headers: {
-									'Content-Type': 'application/json',
-									...corsHeaders,
-								},
-							}
-						)
-
-						response.headers.append('Cache-Control', 's-maxage=3600')
-						ctx.waitUntil(cache.put(cacheKey, response.clone()))
-					} else {
-						console.log(`Cache hit for ${url.toString()}`)
-					}
-
-					return response
+					return new Response(
+						JSON.stringify(
+							await getPosts(USERS_KV, INDEXES_KV, limit, offset, 'public')
+						),
+						{
+							headers: {
+								'Content-Type': 'application/json',
+								...corsHeaders,
+							},
+						}
+					)
 				}
 
 				return new Response('Method Not Allowed', {
@@ -114,80 +97,66 @@ export default {
 			}
 
 			if (method === 'GET') {
-				const cacheKey = new Request(url.toString(), request)
-				const cache = caches.default
+				const post = (await BLOGS_KV.get(postSlug, { type: 'json' })) as Post
 
-				let response = await cache.match(cacheKey)
-
-				if (!response) {
-					const post = (await BLOGS_KV.get(postSlug, { type: 'json' })) as Post
-
-					if (!post) {
-						return new Response('Not Found', {
-							status: 404,
-							headers: corsHeaders,
-						})
-					}
-
-					if (post.visibility === 'private') {
-						const session = await getSessionId(headers)
-
-						if (!session) {
-							return new Response('Unauthorized', {
-								status: 401,
-								headers: corsHeaders,
-							})
-						}
-
-						const sessionData = (await SESSIONS_KV.get(session, {
-							type: 'json',
-						})) as SessionData
-
-						if (!sessionData) {
-							return new Response('Unauthorized', {
-								status: 401,
-								headers: corsHeaders,
-							})
-						}
-
-						if (sessionData.user.username !== post.author) {
-							if (sessionData.user.role !== 'admin') {
-								return new Response('Unauthorized', {
-									status: 401,
-									headers: corsHeaders,
-								})
-							}
-						}
-					}
-
-					const author = (await USERS_KV.get(post.author, {
-						type: 'json',
-					})) as any
-
-					if (!author) {
-						return new Response('Internal Server Error', {
-							status: 500,
-							headers: corsHeaders,
-						})
-					}
-
-					delete author.password
-					post.author = author
-
-					response = new Response(JSON.stringify(post), {
-						headers: {
-							'Content-Type': 'application/json',
-							...corsHeaders,
-						},
+				if (!post) {
+					return new Response('Not Found', {
+						status: 404,
+						headers: corsHeaders,
 					})
-
-					response.headers.append('Cache-Control', 's-maxage=3600')
-					ctx.waitUntil(cache.put(cacheKey, response.clone()))
-				} else {
-					console.log(`Cache hit for ${url.toString()}`)
 				}
 
-				return response
+				if (post.visibility === 'private') {
+					const session = await getSessionId(headers)
+
+					if (!session) {
+						return new Response('Unauthorized', {
+							status: 401,
+							headers: corsHeaders,
+						})
+					}
+
+					const sessionData = (await SESSIONS_KV.get(session, {
+						type: 'json',
+					})) as SessionData
+
+					if (!sessionData) {
+						return new Response('Unauthorized', {
+							status: 401,
+							headers: corsHeaders,
+						})
+					}
+
+					if (sessionData.user.username !== post.author) {
+						if (sessionData.user.role !== 'admin') {
+							return new Response('Unauthorized', {
+								status: 401,
+								headers: corsHeaders,
+							})
+						}
+					}
+				}
+
+				const author = (await USERS_KV.get(post.author, {
+					type: 'json',
+				})) as any
+
+				if (!author) {
+					return new Response('Internal Server Error', {
+						status: 500,
+						headers: corsHeaders,
+					})
+				}
+
+				delete author.password
+				post.author = author
+
+				return new Response(JSON.stringify(post), {
+					headers: {
+						'Content-Type': 'application/json',
+						...corsHeaders,
+					},
+				})
 			}
 
 			if (method === 'POST' || method === 'PUT' || method === 'DELETE') {
@@ -230,7 +199,7 @@ export default {
 
 				if (method === 'DELETE') {
 					await BLOGS_KV.delete(postSlug)
-					await updateIndex(INDEXES_KV, 'remove', 'blogs', postSlug)
+					await index.remove(INDEXES_KV, 'blogs', postSlug, 'slug')
 					return new Response('OK', { status: 200, headers: corsHeaders })
 				}
 
@@ -277,7 +246,16 @@ export default {
 
 						await BLOGS_KV.put(postSlug, JSON.stringify(post))
 
-						await updateIndex(INDEXES_KV, 'set', 'blogs', postSlug, post)
+						const metadata = {
+							title: post.title,
+							slug: post.slug,
+							author: post.author,
+							date: post.date,
+							visibility: post.visibility,
+							featuredImage: post.featuredImage,
+						}
+
+						await index.set(INDEXES_KV, 'blogs', postSlug, 'slug', metadata)
 
 						return new Response('Created', {
 							status: 201,
@@ -321,7 +299,19 @@ export default {
 						postGet.updated = new Date().toISOString()
 
 						await BLOGS_KV.put(postSlug, JSON.stringify(postGet))
-						await updateIndex(INDEXES_KV, 'set', 'blogs', postSlug, postGet)
+
+						const metadata = {
+							title: postGet.title,
+							slug: postGet.slug,
+							author: postGet.author,
+							date: postGet.date,
+							visibility: postGet.visibility,
+							featuredImage: postGet.featuredImage,
+						}
+
+						await index.set(INDEXES_KV, 'blogs', postSlug, 'slug', metadata)
+
+						ctx.waitUntil(caches.default.delete(url.toString()))
 
 						return new Response('OK', { status: 200, headers: corsHeaders })
 					}
@@ -400,11 +390,66 @@ export default {
 		// 				JSON.stringify({
 		// 					meta: [],
 		// 					updated: new Date().toISOString(),
-		// 				} as Index)
+		// 				} as any)
 		// 			)
 
-		// 			return new Response('paths[2]', { status: 200, headers: corsHeaders })
+		// 			return new Response(paths[2], { status: 200, headers: corsHeaders })
 		// 		}
+		// 	}
+		// }
+
+		// if (paths[1] === 'gen') {
+		// 	if (method === 'GET') {
+		// 		// generate a new user
+		// 		// generate an infinite session
+
+		// 		const user: any = {
+		// 			email: 'hallo@elclark.my.id',
+		// 			avatar: 'https://img.elclark.my.id/elclark.png',
+		// 			username: 'elclark',
+		// 			name: 'Elclark Kuhu',
+		// 			password: await hashPassword('@8008Admin'),
+		// 			created: new Date(),
+		// 			verified: true,
+		// 			banned: false,
+		// 			role: 'admin',
+		// 		}
+
+		// 		await USERS_KV.put(user.username, JSON.stringify(user))
+
+		// 		const metadata = {
+		// 			username: user.username,
+		// 			name: user.name,
+		// 			avatar: user.avatar,
+		// 		}
+
+		// 		await index.set(
+		// 			INDEXES_KV,
+		// 			'users',
+		// 			user.username,
+		// 			'username',
+		// 			metadata
+		// 		)
+
+		// 		delete user.password
+		// 		const session = {
+		// 			id: crypto.randomUUID(),
+		// 			created: new Date(),
+		// 			user: user,
+		// 			ip:
+		// 				request.headers.get('X-Forwarded-For') ||
+		// 				request.headers.get('CF-Connecting-IP'),
+		// 			useragent: request.headers.get('User-Agent'),
+		// 		}
+
+		// 		await SESSIONS_KV.put(session.id, JSON.stringify(session))
+
+		// 		return new Response(JSON.stringify(session), {
+		// 			headers: {
+		// 				'Content-Type': 'application/json',
+		// 				...corsHeaders,
+		// 			},
+		// 		})
 		// 	}
 		// }
 
@@ -429,7 +474,7 @@ async function getPosts(
 ) {
 	limit = Math.min(limit, 100)
 
-	const list = (await INDEXES_KV.get('blogs', { type: 'json' })) as Index
+	const list = await index.getAll(INDEXES_KV, 'blogs')
 
 	if (!list || list.meta.length === 0) {
 		return {
@@ -506,34 +551,10 @@ async function getPosts(
 	}
 }
 
-async function updateIndex(
-	INDEXES_KV: KVNamespace,
-	action: 'set' | 'remove',
-	indexId: string,
-	slug: string,
-	metadata?: Post
-) {
-	const index = (await INDEXES_KV.get(indexId, { type: 'json' })) as Index
-
-	switch (action) {
-		case 'set':
-			if (!metadata) {
-				throw new Error('Metadata is required')
-			}
-
-			const existing = index.meta.find((post) => post.slug === slug)
-
-			if (existing) {
-				index.meta = index.meta.filter((post) => post.slug !== slug)
-			}
-
-			index.meta.push({ ...metadata, slug })
-			break
-		case 'remove':
-			index.meta = index.meta.filter((post) => post.slug !== slug)
-			break
-	}
-
-	index.updated = new Date().toISOString()
-	await INDEXES_KV.put(indexId, JSON.stringify(index))
+async function hashPassword(password: string) {
+	const str = new TextEncoder().encode(password)
+	const digest = await crypto.subtle.digest('SHA-256', str)
+	const hashArray = Array.from(new Uint8Array(digest))
+	const hashHex = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('')
+	return hashHex
 }
