@@ -97,7 +97,9 @@ export default {
 			}
 
 			if (method === 'GET') {
-				const post = (await BLOGS_KV.get(postSlug, { type: 'json' })) as Post
+				const post = await BLOGS_KV.get(postSlug).then((data: any) =>
+					JSON.parse(data)
+				)
 
 				if (!post) {
 					return new Response('Not Found', {
@@ -116,9 +118,9 @@ export default {
 						})
 					}
 
-					const sessionData = (await SESSIONS_KV.get(session, {
-						type: 'json',
-					})) as SessionData
+					const sessionData = await SESSIONS_KV.get(session).then((data: any) =>
+						JSON.parse(data)
+					)
 
 					if (!sessionData) {
 						return new Response('Unauthorized', {
@@ -137,9 +139,9 @@ export default {
 					}
 				}
 
-				const author = (await USERS_KV.get(post.author, {
-					type: 'json',
-				})) as any
+				const author = await USERS_KV.get(post.author).then((data: any) =>
+					JSON.parse(data)
+				)
 
 				if (!author) {
 					return new Response('Internal Server Error', {
@@ -169,9 +171,9 @@ export default {
 					})
 				}
 
-				const sessionData = (await SESSIONS_KV.get(session, {
-					type: 'json',
-				})) as SessionData
+				const sessionData = await SESSIONS_KV.get(session).then((data: any) =>
+					JSON.parse(data)
+				)
 
 				if (!sessionData) {
 					return new Response('Unauthorized', {
@@ -215,9 +217,9 @@ export default {
 
 					const { title, content, visibility, featuredImage } = body
 
-					let postGet = (await BLOGS_KV.get(postSlug, {
-						type: 'json',
-					})) as Post
+					let postGet = await BLOGS_KV.get(postSlug).then((data: any) =>
+						JSON.parse(data)
+					)
 
 					if (method === 'POST') {
 						if (!title || !content || !visibility) {
@@ -335,9 +337,9 @@ export default {
 					})
 				}
 
-				const sessionData = (await SESSIONS_KV.get(session, {
-					type: 'json',
-				})) as SessionData
+				const sessionData = await SESSIONS_KV.get(session).then((data: any) =>
+					JSON.parse(data)
+				)
 
 				if (!sessionData) {
 					return new Response('Unauthorized', {
@@ -519,9 +521,7 @@ async function getPosts(
 		let user = users.get(author)
 
 		if (!user) {
-			user = await USERS_KV.get(authorId, {
-				type: 'json',
-			})
+			user = await USERS_KV.get(authorId).then((data: any) => JSON.parse(data))
 
 			delete user.password
 			users.set(author, user)
