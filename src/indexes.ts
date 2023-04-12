@@ -9,12 +9,12 @@ export async function get(
 	id: string,
 	idName: string
 ) {
-	const index = (await INDEXES.get(indexId, { type: 'json' })) as Index
+	const index = await INDEXES.get(indexId).then((data: any) => JSON.parse(data))
 	return index.meta.find((meta: any) => meta[idName] === id)
 }
 
 export async function getAll(INDEXES: any, indexId: string) {
-	return (await INDEXES.get(indexId, { type: 'json' })) as Index
+	return await INDEXES.get(indexId).then((data: any) => JSON.parse(data))
 }
 
 export async function set(
@@ -24,7 +24,7 @@ export async function set(
 	idName: string,
 	metadata: any
 ) {
-	const index = (await INDEXES.get(indexId, { type: 'json' })) as Index
+	const index = await INDEXES.get(indexId).then((data: any) => JSON.parse(data))
 
 	const existing = index.meta.find((meta: any) => meta[idName] === id)
 	if (existing) {
@@ -43,7 +43,7 @@ export async function remove(
 	id: string,
 	idName: string
 ) {
-	const index = (await INDEXES.get(indexId, { type: 'json' })) as Index
+	const index = await INDEXES.get(indexId).then((data: any) => JSON.parse(data))
 	index.meta = index.meta.filter((meta: any) => meta[idName] !== id)
 	index.updated = new Date().toISOString()
 	await INDEXES.put(indexId, JSON.stringify(index))
