@@ -201,7 +201,7 @@ export default {
 
 				if (method === 'DELETE') {
 					await BLOGS_KV.delete(postSlug)
-					await index.remove(INDEXES_KV, 'blogs', postSlug, 'slug')
+					await index.remove(INDEXES_KV, 'blogs', 'slug', postSlug)
 					return new Response('OK', { status: 200, headers: corsHeaders })
 				}
 

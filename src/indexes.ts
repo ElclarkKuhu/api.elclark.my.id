@@ -6,8 +6,8 @@ export interface Index {
 export async function get(
 	INDEXES: any,
 	indexId: string,
-	id: string,
-	idName: string
+	idName: string,
+	id: string
 ) {
 	const index = await INDEXES.get(indexId).then((data: any) => JSON.parse(data))
 	return index.meta.find((meta: any) => meta[idName] === id)
@@ -20,8 +20,8 @@ export async function getAll(INDEXES: any, indexId: string) {
 export async function set(
 	INDEXES: any,
 	indexId: string,
-	id: string,
 	idName: string,
+	id: string,
 	metadata: any
 ) {
 	const index = await INDEXES.get(indexId).then((data: any) => JSON.parse(data))
@@ -40,8 +40,8 @@ export async function set(
 export async function remove(
 	INDEXES: any,
 	indexId: string,
-	id: string,
-	idName: string
+	idName: string,
+	id: string
 ) {
 	const index = await INDEXES.get(indexId).then((data: any) => JSON.parse(data))
 	index.meta = index.meta.filter((meta: any) => meta[idName] !== id)
